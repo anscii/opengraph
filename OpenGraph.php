@@ -49,16 +49,18 @@ class OpenGraph implements Iterator
    * @param $URI    URI to page to parse for Open Graph data
    * @return OpenGraph
    */
-	static public function fetch($URI) {
+	static public function fetch($URI, $timeout=15) {
         $curl = curl_init($URI);
+
+        $user_agent = !empty($_SERVER['HTTP_USER_AGENT']) ? : "Mozilla/4.0";
 
         curl_setopt($curl, CURLOPT_FAILONERROR, true);
         curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);
         curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($curl, CURLOPT_TIMEOUT, 15);
+        curl_setopt($curl, CURLOPT_TIMEOUT, $timeout);
         curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, false);
         curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($curl, CURLOPT_USERAGENT, $_SERVER['HTTP_USER_AGENT']);
+        curl_setopt($curl, CURLOPT_USERAGENT, $user_agent);
 
         $response = curl_exec($curl);
 
@@ -156,7 +158,7 @@ class OpenGraph implements Iterator
 			return $this->_values[$key];
 		}
 		
-		if ($key === 'schema') {
+		if ($key === 'schema' && !empty($this->_values['type'])) {
 			foreach (self::$TYPES AS $schema => $types) {
 				if (array_search($this->_values['type'], $types)) {
 					return $schema;
