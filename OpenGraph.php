@@ -106,7 +106,7 @@ class OpenGraph implements Iterator
 				else if (strpos($tag->getAttribute('property'), 'sports:') === 0)
 				{
 					$key = strtr(substr($tag->getAttribute('property'), 7), '-', '_');
-					$page->_values['sports:'][$key] = $tag->getAttribute('content');
+					$page->_values['sports'][$key] = $tag->getAttribute('content');
 				}
 			}
 			
