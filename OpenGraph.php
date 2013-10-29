@@ -42,6 +42,8 @@ class OpenGraph implements Iterator
    */
 	private $_values = array();
 
+  private $_encoding = 'UTF-8';
+
   /**
    * Fetches a URI and parses it for Open Graph data, returns
    * false on error.
@@ -49,10 +51,10 @@ class OpenGraph implements Iterator
    * @param $URI    URI to page to parse for Open Graph data
    * @return OpenGraph
    */
-	static public function fetch($URI, $timeout=15) {
+	public function fetch($URI, $timeout=15) {
         $curl = curl_init($URI);
 
-        $user_agent = !empty($_SERVER['HTTP_USER_AGENT']) ? : "Mozilla/4.0";
+        $user_agent = !empty($_SERVER['HTTP_USER_AGENT']) ? : "Mozilla/5.0 (Windows; U; Windows NT 6.1; ru; rv:1.9.0.19) Gecko/2010031422 Firefox/3.0.19 (.NET CLR 3.5.30729)";
 
         curl_setopt($curl, CURLOPT_FAILONERROR, true);
         curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);
@@ -61,8 +63,17 @@ class OpenGraph implements Iterator
         curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, false);
         curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
         curl_setopt($curl, CURLOPT_USERAGENT, $user_agent);
+        curl_setopt($curl,CURLOPT_ENCODING, '');
+        //curl_setopt($curl, CURLOPT_VERBOSE, 1);
+        curl_setopt($curl, CURLOPT_HEADER, 1);
 
         $response = curl_exec($curl);
+
+        if (!empty($response))
+        {
+          $content_type = curl_getinfo($curl, CURLINFO_CONTENT_TYPE);
+          $this->guessEncoding($content_type, $response);
+        }
 
         curl_close($curl);
 
@@ -73,6 +84,37 @@ class OpenGraph implements Iterator
         }
 	}
 
+  private function guessEncoding($content_type, $body)
+  {
+    if (!empty($content_type))
+    {
+      preg_match('~charset=([-a-z0-9_]+)~i',$content_type,$match);
+
+      if (!empty($match[1]))
+      {
+        $this->_encoding = $match[1];
+      }
+      else if (strpos($body, '<?xml version') !== False)
+      {
+        preg_match('~encoding=\"([-a-z0-9_]+)\"~i',$body, $match);
+
+        if (!empty($match[1]))
+        {
+          $this->_encoding = $match[1];
+        }
+        else
+        {
+          preg_match('#charset=("?)([-a-z0-9_]+)("?)#i',$body, $match);
+
+          if (!empty($match[2]))
+          {
+            $this->_encoding = $match[2];
+          }
+        }
+      }
+    }
+  }
+
   /**
    * Parses HTML and extracts Open Graph data, this assumes
    * the document is at least well formed.
@@ -80,12 +122,35 @@ class OpenGraph implements Iterator
    * @param $HTML    HTML to parse
    * @return OpenGraph
    */
-	static private function _parse($HTML) {
+	private function _parse($HTML) {
 		$old_libxml_error = libxml_use_internal_errors(true);
 
 		$doc = new DOMDocument();
-		$doc->loadHTML($HTML);
-		
+    //$doc->loadHTML(mb_convert_encoding($HTML, 'HTML-ENTITIES', 'UTF-8'));
+
+    if (strtolower($this->_encoding) == 'windows-1251')
+    {
+      //$HTML = iconv('utf-8', 'cp1252', $HTML);
+      $HTML = iconv('cp1251', 'utf-8', $HTML);
+      $this->_encoding = 'utf-8';
+    }
+
+    if ($this->_encoding == 'utf-8')
+    {
+      $doc->loadHTML(mb_convert_encoding($HTML, 'HTML-ENTITIES', 'UTF-8'));
+    }
+    else
+    {
+      $prefix = '';
+
+      if ( strpos($HTML, '<?xml version') === False )
+      {
+        $prefix = '<?xml version="1.0" encoding="'.$this->_encoding.'"?>"';
+      }
+
+      $doc->loadHTML($prefix . $HTML );
+    }
+
 		libxml_use_internal_errors($old_libxml_error);
 
 		$tags = $doc->getElementsByTagName('meta');
@@ -208,6 +273,11 @@ class OpenGraph implements Iterator
 		}
 		return $valid_address;
 	}
+  // @TODO remove me if I'm useless
+  private function isUnicode($text)
+  {
+    return (bool) preg_match('#.#u', $text);
+  }
 
   /**
    * Iterator code
