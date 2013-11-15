@@ -165,7 +165,7 @@ class OpenGraph implements Iterator
 		foreach ($tags AS $tag) {
 			if ($tag->hasAttribute('property') ) {
 				if (strpos($tag->getAttribute('property'), 'og:') === 0) {
-					$key = strtr(substr($tag->getAttribute('property'), 3), '-', '_');
+					$key = strtr(substr($tag->getAttribute('property'), 3), array('-'=>'_',':'=>'__'));
 					$page->_values[$key] = $tag->getAttribute('content');
 				}
 				else if (strpos($tag->getAttribute('property'), 'sports:') === 0)
